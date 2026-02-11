@@ -2,10 +2,11 @@
 Education Benchmark Mapper -- CLI entry point.
 
 Usage:
-    uv run main.py                  # Full search (S2 + HF) + known benchmarks + report
+    uv run main.py                  # Full search (S2 bulk + HF) + detail fetch + report
     uv run main.py --known-only     # Only use curated known benchmarks (no API search)
     uv run main.py --search-only    # Only use API results; skip curated benchmarks
     uv run main.py --no-s2          # Skip Semantic Scholar; only use HuggingFace
+    uv run main.py --no-details     # Skip fetching full paper details after search
     uv run main.py --query "math"   # Add a custom query to the search list
 """
 
@@ -48,12 +49,12 @@ def cli():
     parser.add_argument(
         "--known-only",
         action="store_true",
-        help="Skip HuggingFace scraping; only use the curated known benchmarks.",
+        help="Skip API search; only use the curated known benchmarks.",
     )
     parser.add_argument(
         "--search-only",
         action="store_true",
-        help="Only use scraped results; don't include curated known benchmarks.",
+        help="Only use API results; don't include curated known benchmarks.",
     )
     parser.add_argument(
         "--query", "-q",
@@ -78,6 +79,11 @@ def cli():
         help="Skip Semantic Scholar; only use HuggingFace for papers.",
     )
     parser.add_argument(
+        "--no-details",
+        action="store_true",
+        help="Skip fetching full Semantic Scholar paper details after search.",
+    )
+    parser.add_argument(
         "--max-datasets",
         type=int,
         default=200,
@@ -86,8 +92,8 @@ def cli():
     parser.add_argument(
         "--max-papers",
         type=int,
-        default=200,
-        help="Max paper results per query via Semantic Scholar (default: 200).",
+        default=1000,
+        help="Max paper results per S2 bulk query (default: 1000).",
     )
     parser.add_argument(
         "--print",
@@ -106,9 +112,14 @@ def cli():
         use_s2 = not args.no_s2
         sources = []
         if use_s2:
-            sources.append("Semantic Scholar")
+            sources.append("Semantic Scholar (bulk)")
         sources.append("HuggingFace")
-        print(f"Starting search with {len(queries)} queries across {', '.join(sources)} ...\n")
+        print(f"Starting search with {len(queries)} queries across {', '.join(sources)} ...")
+        if use_s2 and not args.no_details:
+            print("Full paper details will be fetched after search.\n")
+        else:
+            print()
+
         scraped = run_search(
             queries,
             include_daily_papers=not args.no_daily_papers,
@@ -116,6 +127,7 @@ def cli():
             delay=args.delay,
             max_datasets_per_query=args.max_datasets,
             max_papers_per_query=args.max_papers,
+            fetch_details=use_s2 and not args.no_details,
         )
 
     if not args.search_only:

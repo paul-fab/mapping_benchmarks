@@ -3,10 +3,13 @@ Search for education-related benchmarks across multiple sources:
 
   1. HuggingFace REST API  (datasets + daily papers)
   2. Semantic Scholar API  (comprehensive academic paper search, 200M+ papers)
+     - Bulk search  (GET /paper/search/bulk) -- up to 1000 results per request
+     - Batch detail (POST /paper/batch)      -- full metadata for every hit
 
 Both APIs return structured JSON and support pagination.
 """
 
+import json
 import os
 import re
 import time
@@ -318,7 +321,19 @@ def _search_papers_html(
 # ── Semantic Scholar (comprehensive academic paper search) ────────────────────
 
 S2_API_BASE = "https://api.semanticscholar.org/graph/v1"
-S2_FIELDS = "paperId,title,abstract,year,citationCount,url,externalIds,publicationDate,fieldsOfStudy"
+
+# Fields for bulk search (lightweight -- just enough to identify papers)
+S2_BULK_FIELDS = (
+    "paperId,title,abstract,year,citationCount,url,"
+    "externalIds,publicationDate,fieldsOfStudy,publicationTypes"
+)
+
+# Fields for full detail fetch (everything useful for analysis)
+S2_DETAIL_FIELDS = (
+    "paperId,title,abstract,year,citationCount,influentialCitationCount,"
+    "url,externalIds,publicationDate,fieldsOfStudy,publicationTypes,"
+    "venue,openAccessPdf,tldr,authors,references.paperId,references.title"
+)
 
 
 def _s2_api_key() -> str:
@@ -335,59 +350,65 @@ def _s2_headers() -> dict:
     return headers
 
 
+def _s2_request(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    headers: dict,
+    delay: float = 1.0,
+    **kwargs,
+) -> Optional[dict]:
+    """Make a Semantic Scholar API request with retry + back-off."""
+    for attempt in range(4):
+        try:
+            r = client.request(method, url, headers=headers, timeout=60, **kwargs)
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 429:
+                wait = min(2 ** (attempt + 1), 30)
+                print(f"    S2 rate-limited, waiting {wait}s ...")
+                time.sleep(wait)
+                continue
+            print(f"    S2 HTTP {r.status_code} for {url}")
+            return None
+        except (httpx.HTTPError, ValueError) as exc:
+            print(f"    S2 error: {exc}")
+            time.sleep(delay)
+    return None
+
+
 def search_semantic_scholar(
     query: str,
     client: httpx.Client,
-    max_results: int = 200,
+    max_results: int = 1000,
     delay: float = 1.0,
 ) -> list[BenchmarkEntry]:
     """
-    Search Semantic Scholar for papers matching *query*.
+    Search Semantic Scholar using the **bulk search** endpoint.
 
-    Uses ``GET /paper/search`` with pagination (limit/offset).
-    Max offset supported by S2 is 9999.
+    Uses ``GET /paper/search/bulk`` which returns up to 1,000 results per
+    request and uses token-based pagination for subsequent pages.
 
     Returns BenchmarkEntry objects with source_type="paper".
     """
-    PAGE_SIZE = 100  # S2 max per request
     results: list[BenchmarkEntry] = []
-    offset = 0
     s2_headers = _s2_headers()
+    continuation_token: Optional[str] = None
+    page = 0
 
-    while offset < max_results and offset < 9999:
-        batch_limit = min(PAGE_SIZE, max_results - offset)
+    while len(results) < max_results:
+        params: dict = {
+            "query": query,
+            "fields": S2_BULK_FIELDS,
+            "sort": "citationCount:desc",
+        }
+        if continuation_token:
+            params["token"] = continuation_token
 
-        for attempt in range(3):
-            try:
-                r = client.get(
-                    f"{S2_API_BASE}/paper/search",
-                    headers=s2_headers,
-                    params={
-                        "query": query,
-                        "limit": batch_limit,
-                        "offset": offset,
-                        "fields": S2_FIELDS,
-                    },
-                    timeout=30,
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    break
-                if r.status_code == 429:
-                    wait = 2 ** (attempt + 1)
-                    print(f"    S2 rate-limited, waiting {wait}s ...")
-                    time.sleep(wait)
-                    continue
-                print(f"    S2 HTTP {r.status_code} for query '{query}'")
-                data = None
-                break
-            except (httpx.HTTPError, ValueError) as exc:
-                print(f"    S2 error: {exc}")
-                data = None
-                time.sleep(1)
-        else:
-            data = None
-
+        data = _s2_request(
+            client, "GET", f"{S2_API_BASE}/paper/search/bulk",
+            headers=s2_headers, delay=delay, params=params,
+        )
         if not data or "data" not in data:
             break
 
@@ -395,7 +416,10 @@ def search_semantic_scholar(
         if not papers:
             break
 
+        page += 1
         for paper in papers:
+            if len(results) >= max_results:
+                break
             paper_id = paper.get("paperId", "")
             title = paper.get("title", "")
             if not paper_id or not title:
@@ -407,7 +431,7 @@ def search_semantic_scholar(
             citation_count = paper.get("citationCount") or 0
             fields = paper.get("fieldsOfStudy") or []
 
-            # Build best URL: prefer arXiv link, fall back to S2 URL
+            # Best URL: prefer arXiv, fall back to S2
             ext_ids = paper.get("externalIds") or {}
             arxiv_id = ext_ids.get("ArXiv", "")
             if arxiv_id:
@@ -417,7 +441,6 @@ def search_semantic_scholar(
 
             date_str = pub_date[:10] if pub_date else (str(year) if year else "")
 
-            # Tag with fields of study + citation count bucket
             extra_tags = [f.lower().replace(" ", "-") for f in fields]
             if citation_count >= 100:
                 extra_tags.append("highly-cited")
@@ -431,15 +454,64 @@ def search_semantic_scholar(
                 tags=[query] + extra_tags,
             ))
 
-        # Check if there are more pages
-        total = data.get("total", 0)
-        next_offset = data.get("next")
-        if next_offset is None or offset + len(papers) >= total:
+        # Token-based pagination: if a token is returned, there are more pages
+        continuation_token = data.get("token")
+        if not continuation_token:
             break
-        offset = next_offset
+
+        print(f"    page {page}: {len(results)} papers so far (total in S2: {data.get('total', '?')})")
         time.sleep(delay)
 
     return results
+
+
+def fetch_paper_details(
+    paper_ids: list[str],
+    client: httpx.Client,
+    delay: float = 1.0,
+) -> list[dict]:
+    """
+    Fetch full details for papers using ``POST /paper/batch``.
+
+    Sends batches of up to 500 paper IDs per request.
+    Returns the raw S2 JSON dicts with all detail fields.
+    """
+    BATCH_SIZE = 500
+    s2_headers = {**_s2_headers(), "Content-Type": "application/json"}
+    all_details: list[dict] = []
+
+    for start in range(0, len(paper_ids), BATCH_SIZE):
+        batch = paper_ids[start : start + BATCH_SIZE]
+        batch_num = start // BATCH_SIZE + 1
+        total_batches = (len(paper_ids) + BATCH_SIZE - 1) // BATCH_SIZE
+        print(f"  Fetching paper details batch {batch_num}/{total_batches} ({len(batch)} papers) ...")
+
+        data = _s2_request(
+            client,
+            "POST",
+            f"{S2_API_BASE}/paper/batch",
+            headers=s2_headers,
+            delay=delay,
+            params={"fields": S2_DETAIL_FIELDS},
+            json={"ids": batch},
+        )
+        if data and isinstance(data, list):
+            # Filter out None entries (papers not found)
+            all_details.extend([p for p in data if p is not None])
+        else:
+            print(f"    Warning: batch {batch_num} returned no data")
+
+        time.sleep(delay)
+
+    return all_details
+
+
+def save_paper_details(details: list[dict], output_path: str):
+    """Save the raw Semantic Scholar paper details to a JSON file."""
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(details, f, indent=2, ensure_ascii=False)
+    print(f"  Saved {len(details)} paper details -> {output_path}")
 
 
 # ── Main search orchestrator ─────────────────────────────────────────────────
@@ -450,7 +522,9 @@ def run_search(
     include_semantic_scholar: bool = True,
     delay: float = 1.0,
     max_datasets_per_query: int = 200,
-    max_papers_per_query: int = 200,
+    max_papers_per_query: int = 1000,
+    fetch_details: bool = True,
+    details_output_path: str = "output/s2_paper_details.json",
 ) -> list[BenchmarkEntry]:
     """
     Run all searches and return de-duplicated results.
@@ -458,13 +532,16 @@ def run_search(
     Args:
         queries: Search terms to use.
         include_daily_papers: Also fetch HuggingFace trending daily papers.
-        include_semantic_scholar: Search Semantic Scholar for papers (200M+ corpus).
+        include_semantic_scholar: Use S2 bulk search for papers (200M+ corpus).
         delay: Seconds between request batches (be polite).
         max_datasets_per_query: Max HF dataset results per query (paginated).
-        max_papers_per_query: Max paper results per query (S2 or HF).
+        max_papers_per_query: Max paper results per S2 bulk query (up to 1000/page).
+        fetch_details: After bulk search, fetch full paper details via batch API.
+        details_output_path: Where to save the raw S2 paper detail JSON.
     """
     all_results: list[BenchmarkEntry] = []
     seen_urls: set[str] = set()
+    s2_paper_ids: list[str] = []  # collect S2 paper IDs for detail fetch
 
     def _add(entries: list[BenchmarkEntry]) -> int:
         added = 0
@@ -481,8 +558,8 @@ def run_search(
             print("Semantic Scholar API key detected.")
         else:
             print("No S2_API_KEY set -- using unauthenticated rate limit (slow).")
-            print("Set S2_API_KEY env var for 100x faster paper search.\n")
-            delay = max(delay, 3.0)  # unauthenticated: ~1 req/sec, need buffer
+            print("Set S2_API_KEY env var for faster paper search.\n")
+            delay = max(delay, 3.0)
 
     with httpx.Client() as client:
         # ── HuggingFace daily papers ─────────────────────────────────────
@@ -497,9 +574,9 @@ def run_search(
         for i, q in enumerate(queries, 1):
             print(f"\n[{i}/{total_queries}] Query: '{q}'")
 
-            # ── Semantic Scholar papers ───────────────────────────────────
+            # ── Semantic Scholar bulk search ──────────────────────────────
             if include_semantic_scholar:
-                print(f"  Searching Semantic Scholar ...")
+                print(f"  S2 bulk search ...")
                 s2_papers = search_semantic_scholar(
                     q, client, max_results=max_papers_per_query, delay=delay,
                 )
@@ -523,5 +600,33 @@ def run_search(
             print(f"   -> {len(datasets)} datasets ({added} new)")
             time.sleep(delay)
 
-    print(f"\nFound {len(all_results)} unique results across {total_queries} queries.")
+        print(f"\nFound {len(all_results)} unique results across {total_queries} queries.")
+
+        # ── Fetch full S2 paper details for all paper entries ────────────
+        if include_semantic_scholar and fetch_details:
+            # Extract S2 paper IDs from source URLs
+            for entry in all_results:
+                if entry.source_type == "paper":
+                    # Try to extract S2 paper ID from the URL or tags
+                    url = entry.source_url
+                    if "semanticscholar.org/paper/" in url:
+                        pid = url.split("/paper/")[-1].split("/")[0].split("?")[0]
+                        if pid:
+                            s2_paper_ids.append(pid)
+                    elif "arxiv.org/abs/" in url:
+                        arxiv_id = url.split("/abs/")[-1].split("?")[0]
+                        if arxiv_id:
+                            s2_paper_ids.append(f"ArXiv:{arxiv_id}")
+
+            # De-duplicate paper IDs
+            s2_paper_ids_unique = list(dict.fromkeys(s2_paper_ids))
+
+            if s2_paper_ids_unique:
+                print(f"\nFetching full details for {len(s2_paper_ids_unique)} papers via S2 batch API ...")
+                details = fetch_paper_details(
+                    s2_paper_ids_unique, client, delay=delay,
+                )
+                print(f"  Retrieved details for {len(details)}/{len(s2_paper_ids_unique)} papers.")
+                save_paper_details(details, details_output_path)
+
     return all_results
