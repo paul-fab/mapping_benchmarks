@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+html {
+	scroll-behavior: smooth;
+}
+
+@theme {
+	--font-sans: "Inter", system-ui, -apple-system, sans-serif;
+	--color-accent: #c45421;
+	--color-accent-light: #DE8430;
+	--color-muted: #707070;
+	--color-text-secondary: rgba(0, 0, 0, 0.7);
+	--color-text-dim: #45556c;
+	--color-text-body: #314158;
+	--color-surface: #f7f7f7;
+	--color-surface-alt: #f3f3f5;
+}

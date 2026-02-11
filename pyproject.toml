@@ -1,0 +1,14 @@
+[project]
+name = "mapping-edu-benchmarks"
+version = "0.1.0"
+description = "Search HuggingFace for AI/LLM benchmarks and map them to an education evaluation framework"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "rich>=13.0",
+]
+
+[project.scripts]
+edu-bench = "main:cli"
