@@ -5,14 +5,14 @@ export const TOOL_TYPES: Record<string, ToolType> = {
 		key: 'ai_tutor',
 		name: 'AI Tutors',
 		description:
-			'1-to-1 conversational tutoring systems (e.g. Khanmigo, Duolingo Max).',
+			'1-to-1 conversational tutoring systems.',
 		keyNeeds: ['2.3', '2.2', '4.2', '3.1', '1']
 	},
 	pal: {
 		key: 'pal',
 		name: 'Personalised Adaptive Learning',
 		description:
-			'Systems that adapt content/difficulty to individual learners (e.g. adaptive courseware, ITS).',
+			'Systems that adapt content and difficulty to individual learners.',
 		keyNeeds: ['3.2', '2.1', '4.1', '4.2', '6.1', '6.2']
 	},
 	teacher_support: {

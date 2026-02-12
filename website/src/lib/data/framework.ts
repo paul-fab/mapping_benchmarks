@@ -78,8 +78,6 @@ export const FRAMEWORK: Record<string, Framework> = {
 	}
 };
 
-export const FRAMEWORK_IDS = Object.keys(FRAMEWORK);
-
 export function getAreaGroups(): AreaGroup[] {
 	// Sort by numeric ID to guarantee correct order (1, 2.1, 2.2, ... 5, 6.1, 6.2)
 	const sorted = Object.values(FRAMEWORK).sort(

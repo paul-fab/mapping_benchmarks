@@ -14,6 +14,15 @@ export interface Benchmark {
 	frameworkIds: string[];
 	toolTypes: string[];
 	tags: string[];
+	year?: number;
+	/** AI-generated one-line summary from Semantic Scholar. */
+	tldr?: string;
+	/** Total citation count from Semantic Scholar. */
+	citationCount?: number;
+	/** URL to the open-access PDF (from Semantic Scholar). */
+	pdfUrl?: string;
+	/** LLM-assessed relevance score for K-12 education (1-10). */
+	relevanceScore?: number;
 }
 
 export interface ToolType {

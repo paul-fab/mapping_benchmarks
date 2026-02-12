@@ -1,53 +1,112 @@
 <script lang="ts">
 	import TagBadge from '$lib/components/TagBadge.svelte';
+	import { reviewStore } from '$lib/stores/review.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	let isDismissed = $derived(reviewStore.isDismissed(data.benchmark.slug));
 </script>
 
-<div class="mx-auto flex max-w-[1440px] flex-col gap-10 px-8 py-12">
+<div class="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-8 sm:gap-10 sm:px-8 sm:py-12">
 	<!-- Breadcrumb -->
-	<nav class="flex items-center gap-2 text-sm text-muted">
-		<a href="/" class="transition-colors hover:text-black">Framework</a>
-		<span>/</span>
-		<a href="/framework/{data.frameworks[0]?.id ?? ''}" class="transition-colors hover:text-black">
+	<nav class="flex flex-wrap items-center gap-2 text-sm text-muted">
+		<a href="/" class="shrink-0 transition-colors hover:text-black">Framework</a>
+		<span class="shrink-0">/</span>
+		<a href="/framework/{data.frameworks[0]?.id ?? ''}" class="shrink-0 transition-colors hover:text-black">
 			{data.frameworks[0]?.name ?? 'Category'}
 		</a>
-		<span>/</span>
-		<span class="text-black">{data.benchmark.name}</span>
+		<span class="shrink-0">/</span>
+		<span class="text-black line-clamp-1">{data.benchmark.name}</span>
 	</nav>
 
 	<!-- Main card -->
-	<div class="flex flex-col gap-8 rounded-[14px] border border-black/20 bg-white p-8 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)]">
+	<div class="flex flex-col gap-6 rounded-[14px] border border-black/20 bg-white p-4 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] sm:gap-8 sm:p-8">
 		<!-- Header -->
 		<div class="flex flex-col gap-4">
-			<div class="flex items-start justify-between gap-4">
-				<h1 class="text-3xl font-medium text-black">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+				<h1 class="text-xl font-medium text-black sm:text-3xl {isDismissed ? 'line-through opacity-50' : ''}">
 					{data.benchmark.name}
 				</h1>
-				<span class="shrink-0 rounded-full bg-surface-alt px-3 py-1 text-sm font-medium text-muted">
-					{data.benchmark.sourceType}
-				</span>
+				<div class="flex flex-wrap items-center gap-2">
+					<button
+						onclick={() => reviewStore.toggle(data.benchmark.slug)}
+						class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors
+							{isDismissed
+								? 'bg-green-100 text-green-700 hover:bg-green-200'
+								: 'bg-red-50 text-red-500 hover:bg-red-100'}"
+					>
+						{isDismissed ? '↩ Restore' : '✕ Not relevant'}
+					</button>
+					{#if data.benchmark.relevanceScore}
+						<span
+							class="shrink-0 rounded-full px-3 py-1 text-sm font-medium
+								{data.benchmark.relevanceScore >= 8 ? 'bg-green-50 text-green-700' :
+								 data.benchmark.relevanceScore >= 5 ? 'bg-yellow-50 text-yellow-700' :
+								 'bg-gray-50 text-gray-500'}"
+							title="Relevance to K-12 education ({data.benchmark.relevanceScore}/10)"
+						>
+							Relevance: {data.benchmark.relevanceScore}/10
+						</span>
+					{/if}
+					{#if data.benchmark.citationCount}
+						<span class="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700" title="Citations">
+							{data.benchmark.citationCount.toLocaleString()} cited
+						</span>
+					{/if}
+					{#if data.benchmark.year}
+						<span class="shrink-0 rounded-full bg-surface px-3 py-1 text-sm font-medium text-muted">
+							{data.benchmark.year}
+						</span>
+					{/if}
+					<span class="shrink-0 rounded-full bg-surface-alt px-3 py-1 text-sm font-medium text-muted">
+						{data.benchmark.sourceType}
+					</span>
+				</div>
 			</div>
-			<p class="max-w-[800px] text-lg leading-relaxed text-text-secondary">
-				{data.benchmark.description}
-			</p>
+			{#if data.benchmark.tldr}
+				<p class="max-w-[800px] rounded-lg bg-surface/60 px-4 py-3 text-base leading-relaxed text-black">
+					{data.benchmark.tldr}
+				</p>
+			{/if}
+			{#if data.benchmark.description}
+				<p class="max-w-[800px] text-lg leading-relaxed text-text-secondary">
+					{data.benchmark.description}
+				</p>
+			{/if}
 		</div>
 
-		<!-- Source link -->
+		<!-- Source links -->
 		<div class="flex flex-col gap-2">
 			<h3 class="text-sm font-semibold uppercase tracking-wide text-muted">Source</h3>
-			<a
-				href={data.benchmark.sourceUrl}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="inline-flex items-center gap-2 rounded-full border border-accent px-5 py-2.5 text-sm font-medium text-black transition-colors hover:bg-accent/5"
-			>
-				<svg class="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round" />
-				</svg>
-				View on HuggingFace
-			</a>
+			<div class="flex flex-wrap gap-3">
+				<a
+					href={data.benchmark.sourceUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="inline-flex items-center gap-2 rounded-full border border-accent px-5 py-2.5 text-sm font-medium text-black transition-colors hover:bg-accent/5"
+				>
+					<svg class="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round" />
+					</svg>
+					View source
+				</a>
+				{#if data.benchmark.pdfUrl}
+					<a
+						href={data.benchmark.pdfUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-2 rounded-full border border-blue-400 px-5 py-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round" />
+							<polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round" />
+							<line x1="16" y1="13" x2="8" y2="13" stroke-linecap="round" stroke-linejoin="round" />
+							<line x1="16" y1="17" x2="8" y2="17" stroke-linecap="round" stroke-linejoin="round" />
+						</svg>
+						Open PDF
+					</a>
+				{/if}
+			</div>
 		</div>
 
 		<!-- Framework categories -->

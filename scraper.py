@@ -469,21 +469,44 @@ def fetch_paper_details(
     paper_ids: list[str],
     client: httpx.Client,
     delay: float = 1.0,
+    save_path: str = "",
 ) -> list[dict]:
     """
     Fetch full details for papers using ``POST /paper/batch``.
 
     Sends batches of up to 500 paper IDs per request.
+    Saves incrementally after each batch if *save_path* is provided.
     Returns the raw S2 JSON dicts with all detail fields.
     """
     BATCH_SIZE = 500
     s2_headers = {**_s2_headers(), "Content-Type": "application/json"}
     all_details: list[dict] = []
 
+    # Resume from existing file if present
+    if save_path and os.path.exists(save_path):
+        try:
+            with open(save_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+            if isinstance(existing, list) and existing:
+                all_details = existing
+                # Figure out how many IDs we already have and skip them
+                existing_ids = {p.get("paperId") for p in existing if p}
+                remaining_ids = [pid for pid in paper_ids if pid not in existing_ids]
+                if len(remaining_ids) < len(paper_ids):
+                    skipped = len(paper_ids) - len(remaining_ids)
+                    print(f"  Resuming: {skipped} papers already fetched, {len(remaining_ids)} remaining")
+                    paper_ids = remaining_ids
+        except (json.JSONDecodeError, OSError):
+            pass  # start fresh if file is corrupt
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+
+    total_batches = (len(paper_ids) + BATCH_SIZE - 1) // BATCH_SIZE if paper_ids else 0
+
     for start in range(0, len(paper_ids), BATCH_SIZE):
         batch = paper_ids[start : start + BATCH_SIZE]
         batch_num = start // BATCH_SIZE + 1
-        total_batches = (len(paper_ids) + BATCH_SIZE - 1) // BATCH_SIZE
         print(f"  Fetching paper details batch {batch_num}/{total_batches} ({len(batch)} papers) ...")
 
         data = _s2_request(
@@ -500,6 +523,11 @@ def fetch_paper_details(
             all_details.extend([p for p in data if p is not None])
         else:
             print(f"    Warning: batch {batch_num} returned no data")
+
+        # Save incrementally after each batch
+        if save_path:
+            with open(save_path, "w", encoding="utf-8") as f:
+                json.dump(all_details, f, indent=2, ensure_ascii=False)
 
         time.sleep(delay)
 
@@ -625,8 +653,8 @@ def run_search(
                 print(f"\nFetching full details for {len(s2_paper_ids_unique)} papers via S2 batch API ...")
                 details = fetch_paper_details(
                     s2_paper_ids_unique, client, delay=delay,
+                    save_path=details_output_path,
                 )
                 print(f"  Retrieved details for {len(details)}/{len(s2_paper_ids_unique)} papers.")
-                save_paper_details(details, details_output_path)
 
     return all_results
