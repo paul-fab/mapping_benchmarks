@@ -2,6 +2,7 @@
 	import { getAreaGroups, FRAMEWORK } from '$lib/data/framework';
 	import { getBenchmarkCount, getAvailableYears, applyYearCutoff, filterBenchmarks } from '$lib/data/benchmarks';
 	import { TOOL_TYPES } from '$lib/data/tool-types';
+	import { CONCERN_LIST } from '$lib/data/concerns';
 	import { reviewStore } from '$lib/stores/review.svelte';
 	import { settingsStore, OLD_PAPER_CUTOFF } from '$lib/stores/settings.svelte';
 	import BenchmarkRow from '$lib/components/BenchmarkRow.svelte';
@@ -72,6 +73,9 @@
 		</a>
 		<a href="#tool-types" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
 			Tools
+		</a>
+		<a href="#concerns" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
+			Concerns
 		</a>
 		<a href="#benchmarks" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
 			Benchmarks
@@ -175,6 +179,44 @@
 					{#if data.ttResearchIds.has(toolType.key)}
 						<a
 							href="/research/tool-type/{toolType.key}"
+							class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
+						>
+							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" />
+							</svg>
+							Landscape Summary
+						</a>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	</section>
+
+	<!-- Concerns -->
+	<section id="concerns" class="flex w-full flex-col gap-5 scroll-mt-24">
+		<div class="flex flex-col gap-2">
+			<h2 class="text-2xl font-medium text-black">Concerns</h2>
+			<p class="text-sm leading-relaxed text-text-secondary">
+				Cross-cutting risk themes identified across the research — what could go wrong when AI is used in education, and what do we know about it.
+			</p>
+		</div>
+		<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+			{#each CONCERN_LIST as concern}
+				<div
+					class="group flex flex-col gap-3 rounded-[14px] border border-black/10 bg-white p-6 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-all hover:border-red-400/40 hover:shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]"
+				>
+					<div class="flex flex-col gap-3">
+						<div class="flex items-center gap-2">
+							<span class="inline-block rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+								Concern
+							</span>
+						</div>
+						<h3 class="text-lg font-medium text-black group-hover:text-red-700 transition-colors">{concern.name}</h3>
+						<p class="text-sm leading-relaxed text-text-secondary">{concern.description}</p>
+					</div>
+					{#if data.concernResearchIds.has(concern.key)}
+						<a
+							href="/research/concern/{concern.key}"
 							class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
 						>
 							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

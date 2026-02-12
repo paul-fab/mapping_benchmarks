@@ -197,6 +197,95 @@ HF_SEARCH_QUERIES = [
     "special education AI evaluation",
 ]
 
+# ── Concern / risk themes ─────────────────────────────────────────────────────
+# Cross-cutting concerns that span multiple framework categories.
+# Each concern is a "paper" in the Concerns section of the website.
+# Papers are matched to concerns via keyword search over title + summary + text.
+
+CONCERNS = {
+    "cognitive_offloading": {
+        "name": "Cognitive Offloading & Over-reliance",
+        "description": (
+            "When AI does the thinking for learners — reducing effort, bypassing "
+            "productive struggle, and creating dependency. Includes risks of "
+            "automation bias and loss of deep processing."
+        ),
+        "keywords": [
+            "cognitive offloading", "over-reliance", "over reliance",
+            "automation bias", "cognitive load", "cognitive dependency",
+            "AI dependency", "student dependency", "learned helplessness",
+            "deskilling", "shortcut", "copy paste", "copy-paste",
+            "effort reduction", "deep processing",
+        ],
+    },
+    "productive_struggle": {
+        "name": "Productive Struggle & Scaffolding",
+        "description": (
+            "The balance between helpful AI scaffolding and over-scaffolding that "
+            "removes the desirable difficulty learners need to grow. Includes "
+            "zone of proximal development and fading support."
+        ),
+        "keywords": [
+            "productive struggle", "desirable difficulty", "desirable difficulties",
+            "over-scaffolding", "over scaffolding",
+            "zone of proximal development", "fading support",
+            "guided discovery", "effortful learning",
+            "hint giving", "hint generation", "worked example",
+            "adaptive scaffolding", "scaffold fading",
+        ],
+    },
+    "metacognition": {
+        "name": "Metacognition & Self-regulation",
+        "description": (
+            "Whether AI tools help or hinder learners' ability to monitor their "
+            "own understanding, plan learning strategies, and self-regulate. "
+            "Includes self-assessment accuracy and learning-to-learn skills."
+        ),
+        "keywords": [
+            "metacognition", "metacognitive", "self-regulation",
+            "self-regulated learning", "self-assessment", "self-monitoring",
+            "learning strategies", "study strategies",
+            "self-efficacy", "self-evaluation",
+            "calibration", "learning to learn",
+        ],
+    },
+    "critical_thinking": {
+        "name": "Critical Thinking & Higher-order Skills",
+        "description": (
+            "Impact of AI on higher-order cognitive skills — analysis, evaluation, "
+            "synthesis, and creative problem-solving. Risk that AI reduces tasks "
+            "to surface-level pattern matching."
+        ),
+        "keywords": [
+            "critical thinking", "higher-order thinking", "higher order thinking",
+            "bloom taxonomy", "bloom's taxonomy",
+            "creative thinking", "creative problem",
+            "deep learning vs surface learning", "surface learning",
+            "learning transfer", "transfer of learning",
+            "argumentation skills", "analytical thinking",
+            "higher order cognitive",
+        ],
+    },
+    "equity_access": {
+        "name": "Equity & Access",
+        "description": (
+            "Risks of AI widening existing education gaps — digital divide, "
+            "language bias, cost barriers, cultural relevance, and disparate "
+            "impact on marginalised learners."
+        ),
+        "keywords": [
+            "equity", "digital divide", "inequality",
+            "marginalised", "marginalized", "underserved", "underrepresented",
+            "low-resource", "low resource", "developing country",
+            "developing countries", "LMIC", "low-income",
+            "gender bias", "racial bias", "socioeconomic",
+            "affordability", "inclusive education",
+            "disability", "special needs", "educational equity",
+            "disparity", "achievement gap",
+        ],
+    },
+}
+
 # ── Output settings ──────────────────────────────────────────────────────────
 
 OUTPUT_DIR = "output"

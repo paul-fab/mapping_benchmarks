@@ -12,6 +12,7 @@
 
 let _catCache: Promise<Set<string>> | null = null;
 let _ttCache: Promise<Set<string>> | null = null;
+let _cnCache: Promise<Set<string>> | null = null;
 
 /**
  * Load the set of framework category IDs that have research reports available.
@@ -43,4 +44,20 @@ export function loadToolTypeResearchIds(fetchFn: typeof fetch): Promise<Set<stri
 			.catch(() => new Set<string>());
 	}
 	return _ttCache;
+}
+
+/**
+ * Load the set of concern keys that have research reports available.
+ */
+export function loadConcernResearchIds(fetchFn: typeof fetch): Promise<Set<string>> {
+	if (!_cnCache) {
+		_cnCache = fetchFn('/research/concern/manifest.json')
+			.then((r) => {
+				if (!r.ok) return new Set<string>();
+				return r.json() as Promise<string[]>;
+			})
+			.then((ids) => new Set(ids))
+			.catch(() => new Set<string>());
+	}
+	return _cnCache;
 }

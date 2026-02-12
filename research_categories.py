@@ -45,7 +45,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
-from config import FRAMEWORK, TOOL_TYPES
+from config import FRAMEWORK, TOOL_TYPES, CONCERNS
 from extract_sections import load_and_extract_all, ExtractedPaper, PROFILES
 
 load_dotenv()
@@ -156,10 +156,111 @@ def _build_user_prompt(
     )
 
 
+def _build_concern_system_prompt() -> str:
+    return (
+        "You are a senior education research analyst specialising in the risks and "
+        "unintended consequences of AI/LLM use in K-12 education (ages 5-18). You "
+        "have deep expertise in learning science, cognitive psychology, educational "
+        "technology, and the evidence on how AI tools affect genuine student learning.\n\n"
+        "Your task is to synthesise a collection of research papers related to a "
+        "specific concern or risk theme and produce a structured analysis of what "
+        "the literature says about this risk, how well it is understood, and what "
+        "gaps remain.\n\n"
+        "IMPORTANT: Focus on what the papers actually say about this concern. "
+        "Include both papers that directly study the risk AND papers where the risk "
+        "is a secondary finding. Distinguish between empirical evidence and "
+        "theoretical/opinion pieces.\n\n"
+        "You must respond with ONLY valid JSON -- no markdown fences, no commentary."
+    )
+
+
+def _build_concern_user_prompt(
+    concern_id: str,
+    concern_info: dict,
+    papers: list[ExtractedPaper],
+) -> str:
+    """Build the synthesis prompt for papers matched to a concern theme."""
+    paper_texts = []
+    for i, ep in enumerate(papers, 1):
+        paper_texts.append(
+            f"--- Paper {i} (relevance: {ep.relevance_score}/10) ---\n"
+            f"{ep.to_text()}\n"
+        )
+    combined = "\n\n".join(paper_texts)
+
+    return (
+        f"## Concern Theme: {concern_info['name']}\n"
+        f"Description: {concern_info['description']}\n\n"
+        f"## Papers mentioning this concern ({len(papers)} papers)\n\n"
+        f"{combined}\n\n"
+        f"## Analysis Instructions\n\n"
+        f"These {len(papers)} papers were found by keyword-matching for terms "
+        f"related to '{concern_info['name']}'. Some may address the concern "
+        f"directly; others may mention it tangentially. Synthesise what the "
+        f"literature tells us about this concern.\n\n"
+        f"Produce a JSON object with:\n\n"
+        '{\n'
+        '  "concern_id": "<str>",\n'
+        '  "concern_name": "<str>",\n'
+        '  "paper_count": <int>,\n'
+        '  "papers_directly_addressing": <int>,\n'
+        '  "executive_summary": "<2-3 paragraph overview of what research says about this risk>",\n'
+        '  "key_findings": [\n'
+        '    {\n'
+        '      "finding": "<clear statement of finding>",\n'
+        '      "evidence_type": "<empirical|theoretical|review|opinion>",\n'
+        '      "paper_count": <int>,\n'
+        '      "representative_papers": ["<paper title>", ...]\n'
+        '    }\n'
+        '  ],\n'
+        '  "evidence_for_risk": [\n'
+        '    "<specific evidence that this risk is real and significant>"\n'
+        '  ],\n'
+        '  "evidence_against_or_mitigating": [\n'
+        '    "<evidence that the risk is overstated, or effective mitigations exist>"\n'
+        '  ],\n'
+        '  "what_is_measured": [\n'
+        '    "<specific metrics or measures used to study this concern>"\n'
+        '  ],\n'
+        '  "what_is_not_measured": [\n'
+        '    "<gaps — what SHOULD be studied about this concern but is not>"\n'
+        '  ],\n'
+        '  "context_factors": [\n'
+        '    "<factors that influence whether the risk manifests — age, subject, tool type, etc.>"\n'
+        '  ],\n'
+        '  "notable_studies": [\n'
+        '    {\n'
+        '      "title": "<paper title>",\n'
+        '      "design": "<brief method description>",\n'
+        '      "key_result": "<main finding relevant to this concern>",\n'
+        '      "sample": "<who was studied — age, context, N>"\n'
+        '    }\n'
+        '  ],\n'
+        '  "implications_for_lmics": "<how this concern specifically manifests in low- and middle-income country contexts>",\n'
+        '  "recommendations": [\n'
+        '    "<actionable recommendation for mitigating this risk>"\n'
+        '  ],\n'
+        '  "top_papers": [\n'
+        '    {\n'
+        '      "title": "<paper title>",\n'
+        '      "why_important": "<1 sentence>"\n'
+        '    }\n'
+        '  ]\n'
+        '}'
+    )
+
+
 # ── Batching logic ────────────────────────────────────────────────────────────
 
 def _resolve_group_info(group_id: str, mode: str = "framework") -> dict:
     """Lookup display info for a framework category or tool type."""
+    if mode == "concern":
+        c = CONCERNS.get(group_id, {})
+        return {
+            "name": c.get("name", group_id),
+            "area": "Concern / Risk Theme",
+            "description": c.get("description", f"Papers related to concern '{group_id}'."),
+        }
     if mode == "tool_type":
         tt = TOOL_TYPES.get(group_id, {})
         return {
@@ -187,18 +288,26 @@ class BatchRequest:
     def to_api_request(self) -> dict:
         """Convert to the Anthropic batch API request format."""
         group_info = _resolve_group_info(self.category_id, self.mode)
+        if self.mode == "concern":
+            system = _build_concern_system_prompt()
+            user_content = _build_concern_user_prompt(
+                self.category_id, group_info, self.papers
+            )
+        else:
+            system = _build_system_prompt()
+            user_content = _build_user_prompt(
+                self.category_id, group_info, self.papers
+            )
         return {
             "custom_id": self.custom_id,
             "params": {
                 "model": MODEL,
                 "max_tokens": MAX_OUTPUT_TOKENS,
-                "system": _build_system_prompt(),
+                "system": system,
                 "messages": [
                     {
                         "role": "user",
-                        "content": _build_user_prompt(
-                            self.category_id, group_info, self.papers
-                        ),
+                        "content": user_content,
                     }
                 ],
             },
@@ -217,7 +326,7 @@ def create_batch_requests(
     mode: "framework" uses "cat_" prefix, "tool_type" uses "tt_" prefix.
     """
     requests: list[BatchRequest] = []
-    prefix = "tt" if mode == "tool_type" else "cat"
+    prefix = "cn" if mode == "concern" else ("tt" if mode == "tool_type" else "cat")
 
     for gid in sorted(category_papers.keys()):
         if target_categories and gid not in target_categories:
@@ -274,6 +383,123 @@ def create_batch_requests(
 
 
 # ── Markdown rendering ────────────────────────────────────────────────────────
+
+def render_concern_markdown(data: dict) -> str:
+    """Convert a concern analysis JSON object to a readable Markdown document."""
+    concern_id = data.get("concern_id", "?")
+    concern_name = data.get("concern_name", "Unknown")
+    paper_count = data.get("paper_count", 0)
+    direct = data.get("papers_directly_addressing", 0)
+
+    lines: list[str] = []
+    lines.append(f"# {concern_name}")
+    lines.append("")
+    lines.append(f"**{paper_count} papers matched** ({direct} directly addressing this concern)")
+    lines.append("")
+
+    if data.get("executive_summary"):
+        lines.append("## Executive Summary")
+        lines.append("")
+        lines.append(data["executive_summary"])
+        lines.append("")
+
+    findings = data.get("key_findings", [])
+    if findings:
+        lines.append("## Key Findings")
+        lines.append("")
+        for f in findings:
+            etype = f.get("evidence_type", "")
+            lines.append(f"### {f.get('finding', '')}")
+            lines.append("")
+            lines.append(f"*Evidence type: {etype} | {f.get('paper_count', 0)} papers*")
+            papers = f.get("representative_papers", [])
+            if papers:
+                lines.append("")
+                for p in papers:
+                    lines.append(f"- {p}")
+            lines.append("")
+
+    for_risk = data.get("evidence_for_risk", [])
+    if for_risk:
+        lines.append("## Evidence For This Risk")
+        lines.append("")
+        for item in for_risk:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    against = data.get("evidence_against_or_mitigating", [])
+    if against:
+        lines.append("## Mitigating Evidence")
+        lines.append("")
+        for item in against:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    measured = data.get("what_is_measured", [])
+    if measured:
+        lines.append("## What Is Being Measured")
+        lines.append("")
+        for item in measured:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    not_measured = data.get("what_is_not_measured", [])
+    if not_measured:
+        lines.append("## Gaps — What Is NOT Being Measured")
+        lines.append("")
+        for item in not_measured:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    context = data.get("context_factors", [])
+    if context:
+        lines.append("## Context Factors")
+        lines.append("")
+        for item in context:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    studies = data.get("notable_studies", [])
+    if studies:
+        lines.append("## Notable Studies")
+        lines.append("")
+        for s in studies:
+            lines.append(f"### {s.get('title', '')}")
+            lines.append("")
+            if s.get("design"):
+                lines.append(f"**Design:** {s['design']}")
+            if s.get("sample"):
+                lines.append(f"**Sample:** {s['sample']}")
+            if s.get("key_result"):
+                lines.append(f"**Key result:** {s['key_result']}")
+            lines.append("")
+
+    lmics = data.get("implications_for_lmics", "")
+    if lmics:
+        lines.append("## Implications for LMICs")
+        lines.append("")
+        lines.append(lmics)
+        lines.append("")
+
+    recs = data.get("recommendations", [])
+    if recs:
+        lines.append("## Recommendations")
+        lines.append("")
+        for item in recs:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    top = data.get("top_papers", [])
+    if top:
+        lines.append("## Top Papers")
+        lines.append("")
+        for i, p in enumerate(top, 1):
+            lines.append(f"{i}. **{p.get('title', '')}**")
+            lines.append(f"   {p.get('why_important', '')}")
+            lines.append("")
+
+    return "\n".join(lines)
+
 
 def render_analysis_markdown(data: dict) -> str:
     """
@@ -430,9 +656,12 @@ def save_analysis(cat_id: str, data: dict, output_dir: Path, file_prefix: str = 
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-    # Markdown
+    # Markdown — use concern renderer for concern analyses
     md_path = output_dir / f"{file_prefix}_{cat_id}_analysis.md"
-    md_content = render_analysis_markdown(data)
+    if file_prefix == "concern":
+        md_content = render_concern_markdown(data)
+    else:
+        md_content = render_analysis_markdown(data)
     if md_path.exists():
         # Append for multi-batch groups
         with open(md_path, "a", encoding="utf-8") as f:
@@ -447,10 +676,11 @@ def save_analysis(cat_id: str, data: dict, output_dir: Path, file_prefix: str = 
 
 def regenerate_markdown():
     """Regenerate all Markdown files from existing JSON analysis files."""
-    # Find both category and tool_type analysis files
+    # Find category, tool_type, and concern analysis files
     json_files = sorted(
         list(OUTPUT_DIR.glob("category_*_analysis.json"))
         + list(OUTPUT_DIR.glob("tool_type_*_analysis.json"))
+        + list(OUTPUT_DIR.glob("concern_*_analysis.json"))
     )
     if not json_files:
         console.print("[yellow]No JSON analysis files found.[/yellow]")
@@ -464,11 +694,13 @@ def regenerate_markdown():
             data = json.load(f)
 
         # Handle single object or list of sub-batch results
+        is_concern = json_path.name.startswith("concern_")
+        renderer = render_concern_markdown if is_concern else render_analysis_markdown
         if isinstance(data, list):
-            parts = [render_analysis_markdown(d) for d in data]
+            parts = [renderer(d) for d in data]
             md_content = "\n\n---\n\n".join(parts)
         else:
-            md_content = render_analysis_markdown(data)
+            md_content = renderer(data)
 
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
@@ -707,8 +939,15 @@ def write_reports(
         return
 
     # Find analysis JSONs based on mode
-    glob_pattern = "tool_type_*_analysis.json" if mode == "tool_type" else "category_*_analysis.json"
-    file_prefix = "tool_type" if mode == "tool_type" else "category"
+    if mode == "concern":
+        glob_pattern = "concern_*_analysis.json"
+        file_prefix = "concern"
+    elif mode == "tool_type":
+        glob_pattern = "tool_type_*_analysis.json"
+        file_prefix = "tool_type"
+    else:
+        glob_pattern = "category_*_analysis.json"
+        file_prefix = "category"
     json_files = sorted(OUTPUT_DIR.glob(glob_pattern))
     if not json_files:
         console.print(f"[yellow]No {file_prefix} analysis JSON files found. Run --collect first.[/yellow]")
@@ -748,7 +987,7 @@ def write_reports(
 
     # Summary
     total_tokens = sum(r["tokens"] for r in report_requests)
-    label = "Tool Types" if mode == "tool_type" else "Categories"
+    label = "Concerns" if mode == "concern" else ("Tool Types" if mode == "tool_type" else "Categories")
     console.print(f"\n[bold]Report Writing ({label})[/bold]")
     console.print(f"  Groups:      {len(report_requests)}")
     console.print(f"  Input tokens: ~{total_tokens:,}")
@@ -834,7 +1073,7 @@ def _write_reports_batch(report_requests: list[dict], mode: str = "framework"):
     client = anthropic.Anthropic(api_key=api_key)
 
     # Build batch requests (plain dicts — same format as the analysis batches)
-    report_prefix = "tt-report" if mode == "tool_type" else "report"
+    report_prefix = "cn-report" if mode == "concern" else ("tt-report" if mode == "tool_type" else "report")
     batch_api_requests = []
     for req in report_requests:
         safe_id = req["cat_id"].replace(".", "-")
@@ -917,10 +1156,11 @@ def collect_reports():
 
         is_report_batch = False
         for result in results_iter:
+            is_cn_report = result.custom_id.startswith("cn-report_")
             is_tt_report = result.custom_id.startswith("tt-report_")
-            is_cat_report = result.custom_id.startswith("report_") and not is_tt_report
+            is_cat_report = result.custom_id.startswith("report_") and not is_tt_report and not is_cn_report
 
-            if is_tt_report or is_cat_report:
+            if is_cn_report or is_tt_report or is_cat_report:
                 is_report_batch = True
             else:
                 break  # Not a report batch, skip
@@ -932,7 +1172,10 @@ def collect_reports():
                     if hasattr(block, "text"):
                         report_text += block.text
 
-                if is_tt_report:
+                if is_cn_report:
+                    group_id = result.custom_id.replace("cn-report_", "")
+                    file_prefix = "concern"
+                elif is_tt_report:
                     # tt-report_ai_tutor -> ai_tutor
                     group_id = result.custom_id.replace("tt-report_", "")
                     file_prefix = "tool_type"
@@ -1242,7 +1485,10 @@ def collect_results():
         for custom_id, result_data in batch_results.items():
             if result_data["status"] == "success":
                 # Determine prefix and reverse ID sanitization
-                if custom_id.startswith("tt_"):
+                if custom_id.startswith("cn_"):
+                    group_id = custom_id.split("_batch_")[0].replace("cn_", "")
+                    file_prefix = "concern"
+                elif custom_id.startswith("tt_"):
                     group_id = custom_id.split("_batch_")[0].replace("tt_", "")
                     file_prefix = "tool_type"
                 else:
@@ -1321,7 +1567,7 @@ def run_realtime(
                 result = json.loads(raw)
 
                 # Save result (JSON + Markdown)
-                fp = "tool_type" if req.mode == "tool_type" else "category"
+                fp = "concern" if req.mode == "concern" else ("tool_type" if req.mode == "tool_type" else "category")
                 json_path, md_path = save_analysis(req.category_id, result, OUTPUT_DIR, file_prefix=fp)
                 console.print(f"  [green]OK[/green] {req.custom_id} -> {json_path.name}, {md_path.name}")
 
@@ -1410,9 +1656,19 @@ def main():
         action="store_true",
         help="Group papers by tool type (ai_tutor, pal, teacher_support) instead of framework category.",
     )
+    parser.add_argument(
+        "--concerns",
+        action="store_true",
+        help="Group papers by concern/risk theme (cognitive offloading, productive struggle, etc.).",
+    )
     args = parser.parse_args()
 
-    mode = "tool_type" if args.tool_types else "framework"
+    if args.concerns:
+        mode = "concern"
+    elif args.tool_types:
+        mode = "tool_type"
+    else:
+        mode = "framework"
 
     # Regenerate markdown mode
     if args.regenerate_md:

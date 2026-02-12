@@ -32,6 +32,12 @@ export interface ToolType {
 	keyNeeds: string[];
 }
 
+export interface Concern {
+	key: string;
+	name: string;
+	description: string;
+}
+
 export interface AreaGroup {
 	area: string;
 	frameworks: Framework[];

@@ -554,7 +554,23 @@ def load_and_extract_all(
 
     # Group by the requested dimension
     grouped_papers: dict[str, list[ExtractedPaper]] = defaultdict(list)
-    if group_by == "tool_type":
+    if group_by == "concern":
+        # Keyword-match papers to concern themes
+        from config import CONCERNS
+        import re as _re
+
+        for ep in extracted.values():
+            # Build a searchable blob from title + summary + extracted text
+            blob = (ep.title + " " + ep.summary + " " + ep.to_text()).lower()
+            matched_any = False
+            for concern_key, concern_info in CONCERNS.items():
+                for kw in concern_info["keywords"]:
+                    if _re.search(r'\b' + _re.escape(kw.lower()) + r'\b', blob):
+                        grouped_papers[concern_key].append(ep)
+                        matched_any = True
+                        break  # one keyword match is enough per concern
+            # Don't add to uncategorized — we only want matched papers
+    elif group_by == "tool_type":
         for ep in extracted.values():
             for tt in ep.tool_types:
                 grouped_papers[tt].append(ep)
