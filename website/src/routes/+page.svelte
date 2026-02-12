@@ -58,23 +58,23 @@
 	<!-- Hero -->
 	<div class="flex flex-col items-center gap-4 text-center">
 		<h1 class="text-3xl font-medium text-black sm:text-5xl">
-			Education Benchmark Mapping
+			Education Benchmarks and Evals Mapping
 		</h1>
 		<p class="max-w-[700px] text-base leading-relaxed text-text-secondary sm:text-xl sm:leading-[30px]">
-			We searched Semantic Scholar for Benchmarks and Evals for AI in Education, across {totalCategories} broad categories. We used LLMs to classify these. We found {visibleBenchmarks.length.toLocaleString()} papers which are shown below.
+			We searched Semantic Scholar for benchmarks and evals relevant to AI in education, and mapped them across {totalCategories} quality components. We used LLMs to classify {visibleBenchmarks.length.toLocaleString()} papers, which are shown below.
 		</p>
 	</div>
 
 	<!-- Stats pills -->
 	<div class="flex items-center gap-2 rounded-full border border-[#8e8d8d] bg-surface p-1.5">
 		<a href="#categories" class="rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-sm transition-colors hover:bg-accent/10 hover:text-accent">
-			Framework
-		</a>
-		<a href="#benchmarks" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
-			Benchmarks
+			Quality Components
 		</a>
 		<a href="#tool-types" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
 			Tools
+		</a>
+		<a href="#benchmarks" class="rounded-full px-4 py-2 text-sm text-muted transition-colors hover:bg-white hover:text-black hover:shadow-sm">
+			Benchmarks
 		</a>
 	</div>
 
@@ -88,7 +88,7 @@
 						<th class="px-4 py-3 text-left text-sm font-semibold text-muted">ID</th>
 						<th class="px-6 py-3 text-left text-sm font-semibold text-muted">Category</th>
 						<th class="px-4 py-3 text-right text-sm font-semibold text-muted">Benchmarks</th>
-						<th class="px-4 py-3 text-right text-sm font-semibold text-muted">Research</th>
+						<th class="px-4 py-3 text-right text-sm font-semibold text-muted">Landscape Summary</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -122,7 +122,7 @@
 									href="/framework/{fw.id}"
 									class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium {count <= 2 ? 'bg-accent/10 text-accent' : 'bg-surface-alt text-text-dim'} transition-colors hover:bg-accent/10 hover:text-accent"
 								>
-									{count}
+									{count.toLocaleString()}
 									{#if count <= 2}
 										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 											<path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" />
@@ -152,6 +152,41 @@
 			</table>
 		</div>
 	</div>
+
+	<!-- Tool Types overview -->
+	<section id="tool-types" class="flex w-full flex-col gap-5 scroll-mt-24">
+		<h2 class="text-2xl font-medium text-black">Tool Types</h2>
+		<div class="grid gap-5 sm:grid-cols-3">
+			{#each Object.values(TOOL_TYPES) as toolType}
+				<div
+					class="group flex flex-col gap-3 rounded-[14px] border border-black/10 bg-white p-6 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-all hover:border-accent/40 hover:shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]"
+				>
+					<a href="/tool-type/{toolType.key}" class="flex flex-col gap-3">
+						<h3 class="text-lg font-medium text-black group-hover:text-accent transition-colors">{toolType.name}</h3>
+						<p class="text-sm leading-relaxed text-text-secondary">{toolType.description}</p>
+						<div class="flex flex-wrap gap-1.5">
+							{#each toolType.keyNeeds as need}
+								<span class="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+									{need}
+								</span>
+							{/each}
+						</div>
+					</a>
+					{#if data.ttResearchIds.has(toolType.key)}
+						<a
+							href="/research/tool-type/{toolType.key}"
+							class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
+						>
+							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" />
+							</svg>
+							Landscape Summary
+						</a>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	</section>
 
 	<!-- All benchmarks -->
 	<section id="benchmarks" class="flex w-full flex-col gap-5 scroll-mt-24">
@@ -242,40 +277,5 @@
 				Show more ({(filteredBenchmarks.length - visibleCount).toLocaleString()} remaining)
 			</button>
 		{/if}
-	</section>
-
-	<!-- Tool Types overview -->
-	<section id="tool-types" class="flex w-full flex-col gap-5 scroll-mt-24">
-		<h2 class="text-2xl font-medium text-black">Tool Types</h2>
-		<div class="grid gap-5 sm:grid-cols-3">
-			{#each Object.values(TOOL_TYPES) as toolType}
-				<div
-					class="group flex flex-col gap-3 rounded-[14px] border border-black/10 bg-white p-6 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-all hover:border-accent/40 hover:shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]"
-				>
-					<a href="/tool-type/{toolType.key}" class="flex flex-col gap-3">
-						<h3 class="text-lg font-medium text-black group-hover:text-accent transition-colors">{toolType.name}</h3>
-						<p class="text-sm leading-relaxed text-text-secondary">{toolType.description}</p>
-						<div class="flex flex-wrap gap-1.5">
-							{#each toolType.keyNeeds as need}
-								<span class="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
-									{need}
-								</span>
-							{/each}
-						</div>
-					</a>
-					{#if data.ttResearchIds.has(toolType.key)}
-						<a
-							href="/research/tool-type/{toolType.key}"
-							class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
-						>
-							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
-							Evidence Summary
-						</a>
-					{/if}
-				</div>
-			{/each}
-		</div>
 	</section>
 </div>

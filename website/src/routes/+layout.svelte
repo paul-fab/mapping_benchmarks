@@ -7,7 +7,7 @@
 </script>
 
 <svelte:head>
-	<title>EduBench Mapper</title>
+	<title>EdLab Mapper</title>
 	<meta name="description" content="Mapping AI benchmarks to education framework categories for LMICs" />
 </svelte:head>
 

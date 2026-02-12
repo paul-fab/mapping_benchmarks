@@ -106,7 +106,7 @@
 				{data.toolType.name}
 			</span>
 			<span class="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-				Evidence Summary
+				Landscape Summary
 			</span>
 		</div>
 		<h1 class="text-2xl font-medium text-black sm:text-3xl">{parsed.title}</h1>
