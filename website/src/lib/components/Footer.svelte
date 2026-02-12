@@ -20,10 +20,11 @@
 				</p>
 			</div>
 
-			<div class="flex flex-col gap-3 text-sm text-muted">
-				<a href="https://www.fab-ai.org/initiatives/ai-for-education/edtech-quality/benchmarks?benchmark=CDPK&models=%5B%5D&cost=10&pageView=table" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-black">AI Benchmark Leaderboard</a>
-				<a href="https://www.fab-ai.org" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-black">fab-ai.org</a>
-			</div>
+		<div class="flex flex-col gap-3 text-sm text-muted">
+			<a href="/methods" class="transition-colors hover:text-black">Methods</a>
+			<a href="https://www.fab-ai.org/initiatives/ai-for-education/edtech-quality/benchmarks?benchmark=CDPK&models=%5B%5D&cost=10&pageView=table" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-black">AI Benchmark Leaderboard</a>
+			<a href="https://www.fab-ai.org" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-black">fab-ai.org</a>
+		</div>
 		</div>
 	</div>
 </footer>

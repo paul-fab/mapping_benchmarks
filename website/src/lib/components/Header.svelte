@@ -32,14 +32,20 @@
 			>
 				Concerns
 			</a>
-			<a
-				href="https://www.fab-ai.org/initiatives/ai-for-education/edtech-quality/benchmarks?benchmark=CDPK&models=%5B%5D&cost=10&pageView=table"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="rounded-full px-2.5 py-1.5 text-sm text-black/80 transition-colors hover:bg-black/5 sm:px-4 sm:py-2 sm:text-base"
-			>
-				AI Benchmark Leaderboard
-			</a>
+		<a
+			href="/methods"
+			class="rounded-full px-2.5 py-1.5 text-sm text-black/80 transition-colors hover:bg-black/5 sm:px-4 sm:py-2 sm:text-base"
+		>
+			Methods
+		</a>
+		<a
+			href="https://www.fab-ai.org/initiatives/ai-for-education/edtech-quality/benchmarks?benchmark=CDPK&models=%5B%5D&cost=10&pageView=table"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="rounded-full px-2.5 py-1.5 text-sm text-black/80 transition-colors hover:bg-black/5 sm:px-4 sm:py-2 sm:text-base"
+		>
+			AI Benchmark Leaderboard
+		</a>
 		</nav>
 	</div>
 </header>

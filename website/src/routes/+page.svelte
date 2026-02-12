@@ -62,7 +62,7 @@
 			Education Benchmarks and Evals Mapping
 		</h1>
 		<p class="max-w-[700px] text-base leading-relaxed text-text-secondary sm:text-xl sm:leading-[30px]">
-			We searched Semantic Scholar for benchmarks and evals relevant to AI in education, and mapped them across {totalCategories} quality components. We used LLMs to classify {visibleBenchmarks.length.toLocaleString()} papers, which are shown below.
+			We searched <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2 transition-colors hover:text-accent/80">Semantic Scholar</a> for benchmarks and evals relevant to AI in education, and mapped them across {totalCategories} quality components. We used LLMs to classify {visibleBenchmarks.length.toLocaleString()} papers, which are shown below.
 		</p>
 	</div>
 
@@ -202,7 +202,8 @@
 		</div>
 		<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
 			{#each CONCERN_LIST as concern}
-				<div
+				<a
+					href="/research/concern/{concern.key}"
 					class="group flex flex-col gap-3 rounded-[14px] border border-black/10 bg-white p-6 shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-all hover:border-red-400/40 hover:shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]"
 				>
 					<div class="flex flex-col gap-3">
@@ -214,18 +215,15 @@
 						<h3 class="text-lg font-medium text-black group-hover:text-red-700 transition-colors">{concern.name}</h3>
 						<p class="text-sm leading-relaxed text-text-secondary">{concern.description}</p>
 					</div>
-					{#if data.concernResearchIds.has(concern.key)}
-						<a
-							href="/research/concern/{concern.key}"
-							class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
-						>
-							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
-							Landscape Summary
-						</a>
-					{/if}
-				</div>
+					<span
+						class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition-colors group-hover:bg-green-100"
+					>
+						<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" />
+						</svg>
+						Landscape Summary
+					</span>
+				</a>
 			{/each}
 		</div>
 	</section>
